@@ -75,43 +75,29 @@ def parse_arguments():
     parser.add_argument('-H', '--hours', type=int, help='Number of hours to countdown')
     parser.add_argument('-M', '--minutes', type=int, help='Number of minutes to countdown')
     parser.add_argument('-S', '--seconds', type=int, help='Number of seconds to countdown')
-    parser.add_argument('-d', '--date', type=str, help='Specific date/time to countdown to (format: YYYY-MM-DD HH:MM:SS, HH:MM:SS AM/PM, or HH:MM AM/PM)')
+    parser.add_argument('-d', '--date', type=str, help='Specific date to countdown to (format: YYYY-MM-DD)')
+    parser.add_argument('-t', '--time', type=str, help='Specific time to countdown to (format: HH:MM or HH:MM AM/PM)')
     parser.add_argument('-m', '--message', type=str, help='Message to display above the countdown timer')
     return parser.parse_args()
 
 def calculate_time_left(args):
     description = []
-    if args.date:
+    if args.date or args.time:
+        date_str = args.date if args.date else datetime.now().strftime('%Y-%m-%d')
+        time_str = args.time if args.time else '00:00'
         try:
-            if 'AM' in args.date or 'PM' in args.date:
-                target_time = datetime.strptime(args.date, '%I:%M:%S %p').replace(
-                    year=datetime.now().year,
-                    month=datetime.now().month,
-                    day=datetime.now().day
-                )
+            if 'AM' in time_str or 'PM' in time_str:
+                target_time = datetime.strptime(f'{date_str} {time_str}', '%Y-%m-%d %I:%M %p')
             else:
-                target_time = datetime.strptime(args.date, '%Y-%m-%d %H:%M:%S')
+                target_time = datetime.strptime(f'{date_str} {time_str}', '%Y-%m-%d %H:%M')
         except ValueError as e:
-            try:
-                if 'AM' in args.date or 'PM' in args.date:
-                    target_time = datetime.strptime(args.date, '%I:%M %p').replace(
-                        year=datetime.now().year,
-                        month=datetime.now().month,
-                        day=datetime.now().day,
-                        second=0
-                    )
-                else:
-                    target_time = datetime.strptime(args.date, '%Y-%m-%d %H:%M').replace(
-                        second=0
-                    )
-            except ValueError as e:
-                print(f'Invalid date/time format: {e}. Use YYYY-MM-DD HH:MM:SS, YYYY-MM-DD HH:MM, HH:MM:SS AM/PM, or HH:MM AM/PM.')
-                exit(1)
+            print(f'Invalid date/time format: {e}. Use YYYY-MM-DD, HH:MM, or HH:MM AM/PM.')
+            exit(1)
         time_left = (target_time - datetime.now()).total_seconds()
         if time_left < 0:
             print('The specified time is in the past!')
             exit(1)
-        description.append(f"Countdown until {args.date}")
+        description.append(f"Countdown until {date_str} {time_str}")
         return time_left, ', '.join(description)
     else:
         total_seconds = 0
@@ -185,8 +171,9 @@ def countdown_timer(stdscr, seconds, message, description):
             stdscr.refresh()
             time.sleep(1)
             seconds -= 1
-            # Check for Escape key press
-            if stdscr.getch() == 27:  # 27 is the ASCII code for Escape
+            # Check for Escape or 'q' key press
+            key = stdscr.getch()
+            if key == 27 or key == ord('q'):  # 27 is the ASCII code for Escape, ord('q') is the ASCII code for 'q'
                 break
     except KeyboardInterrupt:
         pass
@@ -207,4 +194,7 @@ def main(stdscr):
         print(f'Error: {e}')
 
 if __name__ == '__main__':
-    curses.wrapper(main)
+    try:
+        curses.wrapper(main)
+    except KeyboardInterrupt:
+        print("Countdown interrupted by user.")
